@@ -22,9 +22,13 @@ const flag = (name, def) => {
   return i >= 0 && args[i + 1] !== undefined ? Number(args[i + 1]) : def;
 };
 
-// Цены за 1M токенов (подставьте свои: $/M input, $/M кэш-чтение, $/M output).
+// Цены за 1M токенов. По умолчанию — deepseek-flash в ЧАС ПИК по официальной
+// странице https://api-docs.deepseek.com/quick_start/pricing/ (снято 2026-10-15):
+// вход (кэш-промах) $0.3, кэш-чтение $0.006 (2% входа), выход $1.2. ВНЕ ЧАСА ПИК
+// всё вдвое дешевле (непик — всё, кроме 01:00–04:00 и 06:00–10:00 UTC пн–пт):
+// передайте --price-in 0.15 --price-cache 0.003.
 const PRICE_IN = flag("price-in", 0.3);
-const PRICE_CACHE = flag("price-cache", PRICE_IN * 0.1); // обычно 10% от input
+const PRICE_CACHE = flag("price-cache", PRICE_IN * 0.02); // кэш-чтение = 2% входа
 const TURNS = flag("turns", 30); // вызовов модели после разбора артефакта
 const BASE = flag("base", 50_000); // базовый контекст сессии (система+история), токенов
 
