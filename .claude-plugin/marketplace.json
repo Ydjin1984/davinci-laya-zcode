@@ -1,0 +1,16 @@
+{
+  "name": "davinci-laya-zcode",
+  "owner": {
+    "name": "DaVinci Cyber Engineering"
+  },
+  "plugins": [
+    {
+      "name": "davinci-laya-decisions",
+      "source": "./plugins/davinci-laya-decisions",
+      "version": "0.1.0",
+      "description": "Локальный decision-engine Laya (127.0.0.1:8095) в ZCode: risk-гейт на PreToolUse в shadow-режиме, проверка доказательств завершения на Stop, ledger изменений и MCP-инструменты типизированных решений (choice/score/noul) с ранжированием контекста.",
+      "displayName": "DaVinci × Laya: локальные решения",
+      "category": "developer-tools"
+    }
+  ]
+}
