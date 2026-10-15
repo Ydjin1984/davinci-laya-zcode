@@ -123,7 +123,7 @@ export const DEFAULTS = {
     maxBlocksPerSession: 1,
     // Команды, считающиеся проверками (тест/lint/typecheck/сборка).
     checks: [
-      { kind: "test", re: "(^|[\\s;&|(])(go\\s+test|npm\\s+(run\\s+)?test|yarn\\s+test|pnpm\\s+(run\\s+)?test|npx\\s+(jest|vitest|mocha)|pytest|python\\s+-m\\s+pytest|cargo\\s+test|dotnet\\s+test|mvn\\s+test|gradle(w)?\\s+test|jest|vitest)" },
+      { kind: "test", re: "(^|[\\s;&|(])(go\\s+test|npm\\s+(run\\s+)?test|yarn\\s+test|pnpm\\s+(run\\s+)?test|npx\\s+(jest|vitest|mocha)|pytest|python\\s+-m\\s+pytest|cargo\\s+test|dotnet\\s+test|mvn\\s+test|gradle(w)?\\s+test|jest|vitest|node\\s+[^\\s;&|]*\\btests?\\b[^\\s;&|]*)" },
       { kind: "lint", re: "(^|[\\s;&|(])(eslint|ruff|flake8|pylint|golangci-lint|npm\\s+run\\s+lint|yarn\\s+lint|pnpm\\s+(run\\s+)?lint|cargo\\s+clippy)" },
       { kind: "typecheck", re: "(^|[\\s;&|(])(tsc\\b|npx\\s+tsc|mypy|pyright|npm\\s+run\\s+(typecheck|types)|yarn\\s+(typecheck|types))" },
       { kind: "build", re: "(^|[\\s;&|(])(npm\\s+run\\s+build|yarn\\s+build|pnpm\\s+(run\\s+)?build|cargo\\s+build|go\\s+build|dotnet\\s+build|mvn\\s+(package|verify)|gradle(w)?\\s+build|make\\b)" },

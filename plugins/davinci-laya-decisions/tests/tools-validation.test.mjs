@@ -84,5 +84,22 @@ await test("настоящая ошибка по-прежнему находит
   assert(/TypeError/.test(text), `ошибка найдена: ${text.slice(0, 300)}`);
 });
 
+group("doneGate: какие команды считаются проверками");
+const { DEFAULTS } = await import("../src/config.mjs");
+const testRe = DEFAULTS.doneGate.checks.find((c) => c.kind === "test").re;
+// Тот же способ сопоставления, что в evidence-ledger.mjs (new RegExp(re, "i")).
+const looksLikeCheck = (cmd) => new RegExp(testRe, "i").test(cmd);
+await test("node tests/run-all.mjs — это проверка (штатная команда README)", () => {
+  assert(looksLikeCheck("node tests/run-all.mjs"), "штатная команда тестов не распознана");
+});
+await test("npm test / npx vitest — это проверки", () => {
+  assert(looksLikeCheck("npm test"), "npm test не распознан");
+  assert(looksLikeCheck("npx vitest run"), "npx vitest не распознан");
+});
+await test("чтение файлов проверкой не считается", () => {
+  assert(!looksLikeCheck("node scripts/laya-admin.mjs status"), "ложное срабатывание на статусе");
+  assert(!looksLikeCheck("ls -la"), "ложное срабатывание на ls");
+});
+
 cleanupTempDataDir(dir);
 process.exit(summary("tools-validation.test"));
