@@ -16,6 +16,56 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+/** Корень каталогов данных плагинов ZCode (создаёт сам ZCode при установке). */
+function pluginDataRoot() {
+  return path.join(os.homedir(), ".zcode", "cli", "plugins", "data");
+}
+
+/**
+ * Каталог, которым пользуется сам плагин в ZCode: ZCode передаёт его хукам и
+ * MCP через ZCODE_PLUGIN_DATA/DAVINCI_LAYA_DATA. Ручной запуск CLI из обычного
+ * shell этих переменных не имеет и раньше писал в запасной каталог — режимы и
+ * метрики расходились: /laya-all сообщал об успехе, а хуки читали другой
+ * config.json (живой случай 2026-10-15). Поэтому без переменных выбираем самый
+ * свежий существующий каталог данных плагина; иначе — запасной путь.
+ */
+function livePluginDataDir() {
+  let best = null;
+  let bestTime = -1;
+  try {
+    for (const name of fs.readdirSync(pluginDataRoot())) {
+      if (!name.startsWith("davinci-laya-decisions@")) continue;
+      const dir = path.join(pluginDataRoot(), name);
+      try {
+        const t = fs.statSync(path.join(dir, "config.json")).mtimeMs;
+        if (t > bestTime) {
+          bestTime = t;
+          best = dir;
+        }
+      } catch {
+        /* без config.json каталог не считается активным */
+      }
+    }
+  } catch {
+    /* каталога нет: установка без ZCode или тесты */
+  }
+  return best;
+}
+
+/** Все существующие каталоги данных (для диагностики расхождений в status). */
+export function allDataDirs() {
+  const out = [];
+  try {
+    for (const name of fs.readdirSync(pluginDataRoot())) {
+      if (name.startsWith("davinci-laya-decisions@")) out.push(path.join(pluginDataRoot(), name));
+    }
+  } catch {
+    /* нет каталога */
+  }
+  out.push(path.join(os.homedir(), ".zcode", "davinci-laya-decisions"));
+  return out;
+}
+
 /** Каталог данных плагина: сюда пишутся config.json, ledger, метрики, чанки. */
 export function dataDir() {
   const candidates = [
@@ -28,9 +78,9 @@ export function dataDir() {
     // задана», а не путь: писать в каталог с таким именем нельзя.
     if (c && !c.includes("${")) return c;
   }
-  // Общий запасной путь: и hooks, и MCP-сервер считают его одинаково, поэтому
-  // ledger, записанный хуком, виден MCP-инструментам даже без переменных окружения.
-  return path.join(os.homedir(), ".zcode", "davinci-laya-decisions");
+  // Без переменных окружения — работаем с тем же каталогом, что хуки и MCP:
+  // ledger, метрики и config должны совпадать у CLI и рантайма.
+  return livePluginDataDir() || path.join(os.homedir(), ".zcode", "davinci-laya-decisions");
 }
 
 export const DEFAULTS = {

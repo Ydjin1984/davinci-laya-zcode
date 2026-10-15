@@ -87,6 +87,49 @@ function normalizeQuestions(input) {
   return null;
 }
 
+/**
+ * Проверяет вопросы, пришедшие от агента (laya_decide/laya_batch), ДО запроса.
+ * Живой сбой, ради которого это добавлено: score-вопрос без criteria уходил в
+ * движок, движок отвечал 400 «вопрос 1: вопрос типа score без вариантов», а
+ * инструмент показывал «Laya недоступна (inference_failed)» — и счётчик ошибок
+ * движка рос из-за запроса, который можно было отклонить локально.
+ */
+function validateQuestions(qs) {
+  const problems = [];
+  for (const [id, q] of Object.entries(qs || {})) {
+    if (!q || typeof q !== "object") {
+      problems.push(`${id}: вопрос не объект`);
+      continue;
+    }
+    if (typeof q.instructions !== "string" || !q.instructions.trim()) problems.push(`${id}: нет instructions`);
+    if (q.type === "score") {
+      const crit = q.criteria;
+      if (!Array.isArray(crit) || crit.length < 2 || crit.some((c) => String(c ?? "").trim() === "")) {
+        problems.push(`${id} (score): нужны уровни — criteria: ["низкий", "высокий", …], минимум 2`);
+      }
+    } else if (q.type === "choice") {
+      const crit = q.criteria;
+      const n = crit && typeof crit === "object" && !Array.isArray(crit) ? Object.keys(crit).length : 0;
+      if (n < 2) problems.push(`${id} (choice): нужны варианты — criteria: {метка: описание}, минимум 2`);
+    } else if (q.type !== "noul") {
+      problems.push(`${id}: тип «${q.type}» неизвестен (choice | score | noul)`);
+    }
+  }
+  return problems;
+}
+
+/** Человекочитаемая диагностика сбоя: не всякий сбой — «Laya недоступна». */
+function layaErrorText(error) {
+  const code = error?.code || "error";
+  const requestSide = ["invalid_questions", "invalid_json", "bad_schema", "bad_json", "unsupported_schema"];
+  const where = requestSide.includes(code)
+    ? "Laya отклонила запрос"
+    : code === "circuit_open"
+      ? "Laya в cooldown после серии сбоев"
+      : "Laya недоступна или сбой";
+  return `${where} (${code}): ${error?.message || "нет деталей"}`;
+}
+
 function errResult(text, extra = {}) {
   return { isError: true, content: [{ type: "text", text }], structuredContent: { ok: false, error: text, ...extra } };
 }
@@ -163,9 +206,24 @@ tool({
     const cfg = loadConfig();
     const qs = normalizeQuestions(args.questions);
     if (!qs || Object.keys(qs).length === 0) return errResult("questions пуст: нужен хотя бы один вопрос.");
+    const problems = validateQuestions(qs);
+    if (problems.length) {
+      return errResult(
+        `Laya не вызывалась: вопросы не по контракту — ${problems.join("; ")}. Исправь questions и повтори (score требует criteria-уровни, choice — criteria-варианты).`,
+        { ok: false, degraded: true, invalid_questions: problems },
+      );
+    }
+    const started = Date.now();
     const res = await decide(String(args.state ?? ""), qs, { cfg, timeoutMs: args.timeout_ms });
+    recordEvent({
+      kind: "mcp_call",
+      source: "mcp:laya_decide",
+      action: res.ok ? `questions:${Object.keys(qs).length}` : "error",
+      latencyMs: Date.now() - started,
+      inferenceError: res.ok ? null : res.error?.code || "error",
+    });
     if (!res.ok) {
-      return okResult(`Laya недоступна (${res.error.code}): ${res.error.message}. Решение не получено — не выдумывай ответ.`, {
+      return okResult(`${layaErrorText(res.error)}. Решение не получено — не выдумывай ответ.`, {
         ok: false,
         degraded: true,
         error: res.error,
@@ -220,9 +278,17 @@ tool({
     }
     if (!criteria || Object.keys(criteria).length < 2) return errResult("labels: нужно минимум две категории.");
     const instr = args.instructions || "К какой категории относится описание?";
+    const started = Date.now();
     const res = await decide(String(args.state ?? ""), questions([choice("label", instr, criteria)]), { cfg });
+    recordEvent({
+      kind: "mcp_call",
+      source: "mcp:laya_classify",
+      action: res.ok ? `labels:${Object.keys(criteria).length}` : "error",
+      latencyMs: Date.now() - started,
+      inferenceError: res.ok ? null : res.error?.code || "error",
+    });
     if (!res.ok) {
-      return okResult(`Laya недоступна (${res.error.code}) — классификация не выполнена.`, { ok: false, degraded: true, error: res.error });
+      return okResult(`${layaErrorText(res.error)} — классификация не выполнена.`, { ok: false, degraded: true, error: res.error });
     }
     const a = res.answers.label;
     const min = typeof args.min_confidence === "number" ? args.min_confidence : 0.6;
@@ -255,9 +321,17 @@ tool({
     const cfg = loadConfig();
     if (!Array.isArray(args.levels) || args.levels.length < 2) return errResult("levels: нужно ≥ 2 уровней.");
     const instr = args.instructions || "Насколько описание соответствует высокому уровню шкалы?";
+    const started = Date.now();
     const res = await decide(String(args.state ?? ""), questions([score("level", instr, args.levels.map(String))]), { cfg });
+    recordEvent({
+      kind: "mcp_call",
+      source: "mcp:laya_score",
+      action: res.ok ? `levels:${args.levels.length}` : "error",
+      latencyMs: Date.now() - started,
+      inferenceError: res.ok ? null : res.error?.code || "error",
+    });
     if (!res.ok) {
-      return okResult(`Laya недоступна (${res.error.code}) — оценка не выполнена.`, { ok: false, degraded: true, error: res.error });
+      return okResult(`${layaErrorText(res.error)} — оценка не выполнена.`, { ok: false, degraded: true, error: res.error });
     }
     const a = res.answers.level;
     const k = args.levels.length;
@@ -308,6 +382,10 @@ tool({
     const results = await mapLimit(items, limit, async (it, i) => {
       const qs = normalizeQuestions(it.questions);
       if (!qs) return { id: it.id || `item${i}`, ok: false, error: "questions пуст" };
+      const problems = validateQuestions(qs);
+      if (problems.length) {
+        return { id: it.id || `item${i}`, ok: false, error: { code: "invalid_questions", message: problems.join("; ") } };
+      }
       const res = await decide(String(it.state ?? ""), qs, { cfg });
       if (!res.ok) return { id: it.id || `item${i}`, ok: false, error: res.error };
       return { id: it.id || `item${i}`, ok: true, checkpoint: res.checkpoint, elapsed_ms: res.elapsedMs, answers: normAnswers(res), warnings: res.warnings };
@@ -513,9 +591,18 @@ tool({
       { re: /(E\d{3,4}|ERR_[A-Z_]+|ENOENT|EACCES|ECONNREFUSED|MODULE_NOT_FOUND)/, w: 3, name: "код ошибки" },
       { re: /(warning|deprecated|WARN)\b/i, w: 1, name: "предупреждение" },
     ];
+    // Маркеры успеха: строка не может быть «ошибкой», даже если содержит слово
+    // error — «[ok] неизвестный инструмент → isError-результат» — это описание
+    // ПРОЙДЕННОЙ проверки, а «провалено 0» — агрегат. Без фильтра триаж выдавал
+    // ложную «уникальную ошибку» (проверено на выводе tests/run-all.mjs).
+    const PASS_LINE_RE = /^\s*(\[ok\]|ok([:\s]|$)|✓|✔|PASS\b)|\bпровалено\s*[:=]?\s*0\b|\bfailures?[:=]\s*0\b/i;
     const triaged = chunks.map((c, i) => {
       const text = String(c.text || "");
-      const hits = SIGNALS.filter((s) => s.re.test(text));
+      const scanText = text
+        .split(/\r?\n/)
+        .filter((l) => !PASS_LINE_RE.test(l))
+        .join("\n");
+      const hits = SIGNALS.filter((s) => s.re.test(scanText));
       const weight = hits.reduce((s, h) => s + h.w, 0);
       // Доказательство — строка самого ВЕСОМОГО сигнала, а не первая попавшаяся:
       // в блоке с 40 DeprecationWarning и одной реальной ошибкой первой совпадает
@@ -524,7 +611,7 @@ tool({
       // заголовок «Traceback (most recent call last):».
       let evidence = "";
       for (const sig of [...hits].sort((a, b) => b.w - a.w)) {
-        const candidates = text.split(/\r?\n/).filter((l) => sig.re.test(l));
+        const candidates = scanText.split(/\r?\n/).filter((l) => sig.re.test(l));
         if (candidates.length) {
           evidence = candidates.find((l) => /\b\w*(Error|Exception)\b/.test(l)) || candidates[0];
           break;
@@ -536,7 +623,7 @@ tool({
       // вхождения, см. слияние ниже). Именно так «scripts/prepare-config.mjs:12:18»
       // терялся, и агенту приходилось дочитывать блок — а каждое такое чтение
       // стоит round-trip (замерено: ~93k токенов контекста).
-      const stack = text
+      const stack = scanText
         .split(/\r?\n/)
         .map((l) => l.trim())
         .filter((l) => l && /(at\s+[\w.$@]+[\s(]|\bFile "|:\d+:\d+\)|^\s*at\s)/.test(l))

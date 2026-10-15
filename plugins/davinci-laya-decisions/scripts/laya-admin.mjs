@@ -8,7 +8,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { loadConfig, paths, ensureDataDir } from "../src/config.mjs";
+import { loadConfig, paths, ensureDataDir, allDataDirs } from "../src/config.mjs";
 import { health, decide, questions, noul, choice, score, QUESTION_SET_VERSION } from "../src/laya-client.mjs";
 import { summarizeMetrics } from "../src/telemetry.mjs";
 import { readLedger } from "../src/evidence-ledger.mjs";
@@ -33,6 +33,8 @@ async function status() {
   out(`Плагин:        v${READ_VERSION}`);
   out(`Каталог данных: ${dir}`);
   out(`Конфигурация:  ${paths().config}`);
+  const extraDataDirs = allDataDirs().filter((d) => path.resolve(d) !== path.resolve(dir));
+  if (extraDataDirs.length) out(`  другие каталоги данных (не активны): ${extraDataDirs.join(", ")}`);
   out(`Адрес Laya:    ${cfg.layaUrl}`);
   out("");
   if (h.ok) {
