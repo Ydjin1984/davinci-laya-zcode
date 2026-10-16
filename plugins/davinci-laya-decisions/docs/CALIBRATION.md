@@ -5,8 +5,8 @@
 
 ## 1. Приёмка сервиса (Этап 0)
 
-```cmd
-cd C:\Users\lex66\.zcode\plugin-workspace\plugins\davinci-laya-decisions
+```bash
+cd <каталог плагина>  # ~/.zcode/plugin-workspace/plugins/davinci-laya-decisions
 node scripts/laya-admin.mjs doctor
 ```
 
