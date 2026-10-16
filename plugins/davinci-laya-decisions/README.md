@@ -80,18 +80,21 @@
 
 ## Установка
 
-Плагин уже разложен в рабочее пространство плагинов:
-`C:\Users\lex66\.zcode\plugin-workspace\plugins\davinci-laya-decisions`
-и зарегистрирован в marketplace `dev-plugin-workspace-cf064430`.
+Канонический источник — публичный репозиторий-маркетплейс
+<https://github.com/Ydjin1984/davinci-laya-zcode>.
 
-1. Открой **Settings → Plugin Management**, дай маркетплейсу обновиться
-   (кэш синхронизируется из `plugin-workspace\plugins\marketplace.json`).
+1. Добавь маркетплейс: **Settings → Plugin Management → Discover → «+» →
+   GitHub repository** → `Ydjin1984/davinci-laya-zcode`.
 2. Включи плагин **DaVinci × Laya: локальные решения**.
-3. Проверь: `/laya-status` в чате ZCode или
-   `node <плагин>/scripts/laya-admin.mjs doctor`.
+3. Начни **новую сессию** ZCode (команды, навык и MCP подхватываются при старте),
+   при первом вызове MCP-инструмента разреши доступ.
+4. Проверь: `/laya-status` в чате ZCode или
+   `node <каталог плагина>/scripts/laya-admin.mjs doctor`.
 
-Канонический источник плагина: `D:\Laya_Engine\davinci-laya-zcode\` (его можно
-подключить отдельным маркетплейсом: Settings → Add marketplace → путь к каталогу).
+На Windows/Linux/macOS установку можно сделать скриптом из репозитория движка
+(Laya-Engine → `scripts/install-plugin.sh` / `scripts\windows\install-plugin.ps1`):
+он клонирует маркетплейс в `~/.zcode/plugin-workspace/plugins/`, регистрирует
+плагин в `marketplace.json` и на не-Windows системах собирает лаунчер хуков.
 
 **Требования:** Node.js ≥ 20 (проверено на 24), запущенный `laya-server`
 (порт 8095, поднимается `D:\Laya_Engine\start-laya.cmd`). Плагин работает и без
@@ -173,11 +176,11 @@ Laya — ноль ложных срабатываний. Именно поэто
 
 ## Проверка работоспособности
 
-```cmd
-cd C:\Users\lex66\.zcode\plugin-workspace\plugins\davinci-laya-decisions
-node tests\run-all.mjs        :: наборы: гейты, лаунчер, replay, контракт, MCP (сумму печатает сам)
-node scripts\laya-admin.mjs doctor   :: самодиагностика интеграции
-node scripts\laya-eval.mjs    :: калибровка на живом сервере (FNR/FPR, латентность)
+```bash
+cd <каталог плагина>                 # например ~/.zcode/plugin-workspace/plugins/davinci-laya-decisions
+node tests/run-all.mjs               # наборы: гейты, лаунчер, replay, контракт, MCP (сумму печатает сам)
+node scripts/laya-admin.mjs doctor   # самодиагностика интеграции
+node scripts/laya-eval.mjs           # калибровка на живом сервере (FNR/FPR, латентность)
 ```
 
 Отсутствие `laya-server` не считается поломкой: live-тесты помечаются SKIP,

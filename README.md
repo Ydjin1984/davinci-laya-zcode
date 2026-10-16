@@ -27,26 +27,40 @@ davinci-laya-zcode/
 ### Со второго компьютера (из GitHub)
 
 1. Добавить маркетплейс: **Settings → Plugin Management → Discover → «+» → GitHub repository**
-   → `Ydjin1984/davinci-laya-zcode` (репозиторий приватный: нужен вход в тот же аккаунт GitHub).
+   → `Ydjin1984/davinci-laya-zcode` (публичный репозиторий-маркетплейс).
 2. Включить плагин **«DaVinci × Laya: локальные решения»**.
 3. Убедиться, что движок Laya запущен на `127.0.0.1:8095` (без него плагин работает пассивно).
 4. Начать **новую сессию** ZCode (команды, навык и MCP подхватываются при старте), при первом
    вызове MCP-инструмента разрешить доступ. Проверка: `/laya-status`.
 
-Требования: Windows (лаунчер хуков — `bin/laya-hook.exe`), Node.js ≥ 20, Laya на `127.0.0.1:8095`.
+**Требования:** Node.js ≥ 20; запущенный движок Laya на `127.0.0.1:8095`
+(сам движок — репозиторий `{ENGINE}`: Windows / Linux / macOS / Docker,
+скрипты установки и автозапуска включены). Лаунчер хуков
+(`bin/laya-hook.exe`) в репозитории собран под Windows; на Linux/macOS он
+собирается из исходника (`go build ./tools/hook-launcher`) скриптом установки
+движка — `scripts/install-plugin.sh` — либо подменяется pass-through обёрткой
+(чуть медленнее, поведение то же).
 
-### На этой машине (dev-plugin-workspace)
+Без движка плагин работает в пассивном режиме (fail-open): ZCode продолжает
+работать штатно, активные функции просто не включаются.
 
-1. Плагин разложен в `C:\Users\lex66\.zcode\plugin-workspace\plugins\davinci-laya-decisions`
-   и зарегистрирован в маркетплейсе `dev-plugin-workspace-cf064430`.
-2. В ZCode: **Settings → Plugin Management** → дождаться обновления маркетплейса →
-   включить **«DaVinci × Laya: локальные решения»**.
-3. Движок Laya поднимается `D:\Laya_Engine\start-laya.cmd` (один раз на машину).
-4. Проверка: `/laya-status` в чате или
-   `node scripts\laya-admin.mjs doctor` в каталоге плагина.
+### Установка скриптом (Windows / Linux / macOS)
 
-Альтернатива — подключить каталог репозитория отдельным маркетплейсом:
-Settings → Plugins → Add marketplace → `D:\Laya_Engine\davinci-laya-zcode`.
+```bash
+# из репозитория движка Ydjin1984/Laya-Engine:
+./scripts/install-plugin.sh                                   # Linux/macOS
+powershell -ExecutionPolicy Bypass -File scripts\windows\install-plugin.ps1   # Windows
+```
+
+Скрипт клонирует маркетплейс, раскладывает плагин в локальное рабочее
+пространство ZCode (`~/.zcode/plugin-workspace/plugins/`), регистрирует его в
+`marketplace.json` (с бэкапом) и печатает шаги включения.
+
+### Локальная разработка (альтернативный маркетплейс)
+
+Можно подключить клон репозитория отдельным локальным маркетплейсом:
+Settings → Plugin Management → Add marketplace → путь к каталогу с
+`marketplace.json` — плагин появится в списке Discover.
 
 ## Документация
 

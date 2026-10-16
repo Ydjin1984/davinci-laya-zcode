@@ -2,13 +2,14 @@
 
 ## Быстрый старт
 
-```cmd
-:: 1. Движок Laya (один раз на машину, живёт в трее/свернутом окне)
-D:\Laya_Engine\start-laya.cmd
+```bash
+# 1. Движок Laya (один раз на машину, живёт в свёрнутом окне/сервисом).
+#    Windows: start-laya.cmd   Linux/macOS: ./scripts/laya.sh start
+#    (движок и скрипты установки — https://github.com/Ydjin1984/Laya-Engine)
 
-:: 2. Убедиться, что плагин видит сервис
-cd C:\Users\lex66\.zcode\plugin-workspace\plugins\davinci-laya-decisions
-node scripts\laya-admin.mjs doctor
+# 2. Убедиться, что плагин видит сервис
+cd <каталог плагина>          # ~/.zcode/plugin-workspace/plugins/davinci-laya-decisions
+node scripts/laya-admin.mjs doctor
 ```
 
 В чате ZCode: `/laya-status` — сводка. Дальше плагин работает сам: RiskGate
