@@ -6,8 +6,12 @@ description: Замер латентности Laya (end-to-end и по данн
 
 Замерь производительность локальной Laya перед тем, как включать активные режимы гейтов. Выполни в Bash:
 
-```
-node "${ZCODE_PLUGIN_ROOT}/scripts/laya-admin.mjs" bench 40
+```bash
+# ZCODE_PLUGIN_ROOT в Bash может быть не задан: берём installPath из реестра
+# установленных плагинов. Это переживает обновление версии плагина.
+PLUGIN_ROOT="${ZCODE_PLUGIN_ROOT:-$(node -e 'try{const fs=require("fs"),path=require("path"),os=require("os");const f=path.join(os.homedir(),".zcode","cli","plugins","installed_plugins.json");const j=JSON.parse(fs.readFileSync(f,"utf8"));const p=(j.plugins||[]).find(x=>x.name==="davinci-laya-decisions");if(!p)process.exit(2);process.stdout.write(p.installPath)}catch(e){process.exit(2)}')}"
+test -f "$PLUGIN_ROOT/scripts/laya-admin.mjs" || { printf 'Не найден laya-admin.mjs: %s\n' "$PLUGIN_ROOT" >&2; exit 2; }
+node "$PLUGIN_ROOT/scripts/laya-admin.mjs" bench 40
 ```
 
 Число после команды — количество прогонов. Для этой команды без аргумента используй 40; собственный default CLI — 30.

@@ -8,13 +8,17 @@ description: Найти нужное в репозитории через laya_s
 
 1. Поиск и ранжирование одной командой (подставь ключевые слова запроса и каталог):
 ```bash
-rg -n -i "<ключевые слова>" <каталог> --glob '!node_modules' --glob '!*.lock' | node "${ZCODE_PLUGIN_ROOT}/scripts/laya-cli.mjs" search-relevant --query "<запрос целиком>" --top-k 6
+# ZCODE_PLUGIN_ROOT в Bash может быть не задан: берём installPath из реестра
+# установленных плагинов. Это переживает обновление версии плагина.
+PLUGIN_ROOT="${ZCODE_PLUGIN_ROOT:-$(node -e 'try{const fs=require("fs"),path=require("path"),os=require("os");const f=path.join(os.homedir(),".zcode","cli","plugins","installed_plugins.json");const j=JSON.parse(fs.readFileSync(f,"utf8"));const p=(j.plugins||[]).find(x=>x.name==="davinci-laya-decisions");if(!p)process.exit(2);process.stdout.write(p.installPath)}catch(e){process.exit(2)}')}"
+test -f "$PLUGIN_ROOT/scripts/laya-cli.mjs" || { printf 'Не найден laya-cli.mjs: %s\n' "$PLUGIN_ROOT" >&2; exit 2; }
+rg -n -i "<ключевые слова>" <каталог> --glob '!node_modules' --glob '!*.lock' | node "$PLUGIN_ROOT/scripts/laya-cli.mjs" search-relevant --query "<запрос целиком>" --top-k 6
 ```
 
 2. В выводе — порядок, оценка релевантности, **встроенные сниппеты** и подсказки `Read(path, offset, limit)`.
    - Если сниппеты доказывают точный текст или расположение — ответ допустим по ним; вывод о поведении требует чтения контекста.
    - Иначе прочитай **top-1…3 одним пакетом** (несколько Read в одном сообщении).
-3. Начинай с релевантных фрагментов; расширяй чтение при необходимости. Полные фрагменты попаданий сохранены: `laya_get_chunk` (или `node scripts/laya-cli.mjs get-chunk <id>`).
+3. Начинай с релевантных фрагментов; расширяй чтение при необходимости. Полные фрагменты попаданий сохранены: `laya_get_chunk` (или `node "$PLUGIN_ROOT/scripts/laya-cli.mjs" get-chunk <id>` в том же shell).
 
 Отчёт пользователю: ответ по существу + список файлов/строк, которые его подтверждают.
 

@@ -6,8 +6,12 @@ description: Статус Laya: доступность, чекпоинт, реж
 
 Покажи статус интеграции DaVinci × Laya. Выполни в Bash:
 
-```
-node "${ZCODE_PLUGIN_ROOT}/scripts/laya-admin.mjs" status
+```bash
+# ZCODE_PLUGIN_ROOT в Bash может быть не задан: берём installPath из реестра
+# установленных плагинов. Это переживает обновление версии плагина.
+PLUGIN_ROOT="${ZCODE_PLUGIN_ROOT:-$(node -e 'try{const fs=require("fs"),path=require("path"),os=require("os");const f=path.join(os.homedir(),".zcode","cli","plugins","installed_plugins.json");const j=JSON.parse(fs.readFileSync(f,"utf8"));const p=(j.plugins||[]).find(x=>x.name==="davinci-laya-decisions");if(!p)process.exit(2);process.stdout.write(p.installPath)}catch(e){process.exit(2)}')}"
+test -f "$PLUGIN_ROOT/scripts/laya-admin.mjs" || { printf 'Не найден laya-admin.mjs: %s\n' "$PLUGIN_ROOT" >&2; exit 2; }
+node "$PLUGIN_ROOT/scripts/laya-admin.mjs" status
 ```
 
 Затем перескажи пользователю по-русски и по делу:
@@ -37,7 +41,7 @@ flowchart LR
 | Конфигурация | Путь файла, режимы и фактические пороги |
 | Хуки текущей сессии | Соответствующие свежие события, а не только общий счётчик |
 
-Health не доказывает исправность инференса. При необходимости выполни node "${ZCODE_PLUGIN_ROOT}/scripts/laya-admin.mjs" doctor; он также делает временную пробу записи в каталог данных. Без реального запроса пиши «инференс не проверен». Не запускай bench ради обычного статуса.
+Health не доказывает исправность инференса. При необходимости выполни в том же shell `node "$PLUGIN_ROOT/scripts/laya-admin.mjs" doctor` (если `PLUGIN_ROOT` не сохранился, повтори его определение из первого блока); он также делает временную пробу записи в каталог данных. Без реального запроса пиши «инференс не проверен». Не запускай bench ради обычного статуса.
 
 Events=0 означает только отсутствие событий в доступных метриках: возможны другой каталог, очистка или сбой хуков. Если требуется, прочитай последние записи из указанного каталога и время последнего успешного события; неизвестные поля не угадывай, секреты не показывай. Долю ошибок сообщай с числителем, знаменателем и известным периодом.
 

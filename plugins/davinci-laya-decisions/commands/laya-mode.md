@@ -4,10 +4,22 @@ description: Переключить режим гейтов Laya (risk/done/rout
 
 # Переключение режима Laya
 
-Смени режим гейта в конфигурации плагина. Выполни в Bash (подставь аргументы):
+Смени один режим гейта в конфигурации плагина. Сначала проверь аргумент сам:
+ровно имя настройки и одно значение из списка ниже; пустой аргумент → только
+`status`; неизвестное имя, отсутствующее значение или лишние аргументы →
+откажись, CLI не вызывай. Передавай значения только как два отдельных
+quoted-аргумента, не подставляй всю строку в shell.
 
-```
-node "${ZCODE_PLUGIN_ROOT}/scripts/laya-admin.mjs" mode $ARGUMENTS
+Подставь проверенные `<настройка>` и `<значение>` и выполни:
+
+```bash
+# ZCODE_PLUGIN_ROOT в Bash может быть не задан: берём installPath из реестра
+# установленных плагинов. Это переживает обновление версии плагина.
+PLUGIN_ROOT="${ZCODE_PLUGIN_ROOT:-$(node -e 'try{const fs=require("fs"),path=require("path"),os=require("os");const f=path.join(os.homedir(),".zcode","cli","plugins","installed_plugins.json");const j=JSON.parse(fs.readFileSync(f,"utf8"));const p=(j.plugins||[]).find(x=>x.name==="davinci-laya-decisions");if(!p)process.exit(2);process.stdout.write(p.installPath)}catch(e){process.exit(2)}')}"
+test -f "$PLUGIN_ROOT/scripts/laya-admin.mjs" || { printf 'Не найден laya-admin.mjs: %s\n' "$PLUGIN_ROOT" >&2; exit 2; }
+node "$PLUGIN_ROOT/scripts/laya-admin.mjs" status
+node "$PLUGIN_ROOT/scripts/laya-admin.mjs" mode "<настройка>" "<значение>"
+node "$PLUGIN_ROOT/scripts/laya-admin.mjs" status
 ```
 
 Допустимые значения:
@@ -29,7 +41,7 @@ flowchart LR
 
 ## Валидация, сохранность и подтверждение результата
 
-До запуска допускай ровно имя настройки и одно значение из таблицы выше. Пустой аргумент показывает только status. Неизвестное имя, отсутствующее значение или лишние аргументы отклоняй; особенно sessionContext, для которого CLI не отвергает все неверные значения. Передавай аргументы безопасно, не исполняй их как shell-код.
+До запуска допускай ровно имя настройки и одно значение из таблицы выше. Пустой аргумент показывает только status. Неизвестное имя, отсутствующее значение или лишние аргументы отклоняй. CLI теперь сам отвергает неверные значения (включая sessionContext), но проверка до вызова обязательна. Передавай аргументы безопасно, не исполняй их как shell-код.
 
 | Этап | Проверка |
 |---|---|

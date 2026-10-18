@@ -8,23 +8,29 @@ description: Разобрать большой лог/вывод через laya
 
 **Если аргумент — файл**, выполни:
 ```bash
-node "${ZCODE_PLUGIN_ROOT}/scripts/laya-cli.mjs" log-triage "<абсолютный путь к файлу>" --chunk-lines 50
+# ZCODE_PLUGIN_ROOT в Bash может быть не задан: берём installPath из реестра
+# установленных плагинов. Это переживает обновление версии плагина.
+PLUGIN_ROOT="${ZCODE_PLUGIN_ROOT:-$(node -e 'try{const fs=require("fs"),path=require("path"),os=require("os");const f=path.join(os.homedir(),".zcode","cli","plugins","installed_plugins.json");const j=JSON.parse(fs.readFileSync(f,"utf8"));const p=(j.plugins||[]).find(x=>x.name==="davinci-laya-decisions");if(!p)process.exit(2);process.stdout.write(p.installPath)}catch(e){process.exit(2)}')}"
+test -f "$PLUGIN_ROOT/scripts/laya-cli.mjs" || { printf 'Не найден laya-cli.mjs: %s\n' "$PLUGIN_ROOT" >&2; exit 2; }
+node "$PLUGIN_ROOT/scripts/laya-cli.mjs" log-triage "<абсолютный путь к файлу>" --chunk-lines 50
 ```
 
 **Если аргумент — команда** (например `npm test`), сначала сохрани её вывод в файл, затем триаж по файлу:
 ```bash
+PLUGIN_ROOT="${ZCODE_PLUGIN_ROOT:-$(node -e 'try{const fs=require("fs"),path=require("path"),os=require("os");const f=path.join(os.homedir(),".zcode","cli","plugins","installed_plugins.json");const j=JSON.parse(fs.readFileSync(f,"utf8"));const p=(j.plugins||[]).find(x=>x.name==="davinci-laya-decisions");if(!p)process.exit(2);process.stdout.write(p.installPath)}catch(e){process.exit(2)}')}"
+test -f "$PLUGIN_ROOT/scripts/laya-cli.mjs" || { printf 'Не найден laya-cli.mjs: %s\n' "$PLUGIN_ROOT" >&2; exit 2; }
 log_file="$(mktemp "${TMPDIR:-/tmp}/laya-run.XXXXXX")"
 <команда> > "$log_file" 2>&1
 run_exit=$?
 printf 'command_exit=%s\nlog=%s\n' "$run_exit" "$log_file"
-node "${ZCODE_PLUGIN_ROOT}/scripts/laya-cli.mjs" log-triage "$log_file" --chunk-lines 50
+node "$PLUGIN_ROOT/scripts/laya-cli.mjs" log-triage "$log_file" --chunk-lines 50
 ```
 
 Правила работы:
 1. Используй обнаруженные ошибки с числом вхождений («×10»), подсказки `Read(offset, limit)` и кадры стека «↳» с `file:line`; полноту проверяй отдельно.
 2. **Для первичного перечисления используй сводку** — это первичный список обнаруженных ошибок; полноту оцени по правилам ниже.
 3. Читай 5–15 строк только если нужен контекст вокруг конкретного места — и одним пакетом.
-4. Полные блоки доступны через `laya_get_chunk` (или `node scripts/laya-cli.mjs get-chunk <id>`), если понадобится деталь.
+4. Полные блоки доступны через `laya_get_chunk` (или `node "$PLUGIN_ROOT/scripts/laya-cli.mjs" get-chunk <id>` в том же shell), если понадобится деталь.
 
 Отчёт пользователю: уникальные ошибки (тип, файл, строка) + строка «Итог:» из вывода триажа.
 

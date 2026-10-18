@@ -66,37 +66,82 @@ async function status() {
   return h.ok ? 0 : 1;
 }
 
+/** Читает config.json; отсутствие файла — пустой объект. Ошибка разбора — исключение. */
+function readConfigFile(file) {
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+}
+
+/** Пишет config.json; каталог создаётся при необходимости. */
+function writeConfigFile(file, cfg) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+}
+
 function mode(args) {
-  const [gate, value] = args;
-  const allowed = {
-    risk: { key: "riskGate", values: ["off", "shadow", "ask"] },
-    done: { key: "doneGate", values: ["off", "report", "block"] },
-    router: { key: "router", values: ["off", "log", "advise"] },
-    sessioncontext: { key: "sessionContext", values: ["on", "off", "true", "false"] },
-  };
-  if (!gate || !allowed[gate.toLowerCase()]) {
+  const usage = () => {
     out("Использование: laya-admin mode <risk|done|router|sessionContext> <значение>");
     out("  risk:  off | shadow | ask");
     out("  done:  off | report | block");
     out("  router: off | log | advise");
     out("  sessionContext: on | off");
+  };
+  if (args.length > 2) {
+    usage();
+    out("Лишние аргументы не допускаются.");
     return 2;
   }
-  const spec = allowed[gate.toLowerCase()];
+  const allowed = {
+    risk: { key: "riskGate", values: ["off", "shadow", "ask"] },
+    done: { key: "doneGate", values: ["off", "report", "block"] },
+    router: { key: "router", values: ["off", "log", "advise"] },
+    sessioncontext: { key: "sessionContext", values: ["on", "off"] },
+  };
+  const gate = String(args[0] || "").toLowerCase();
+  if (!gate || !allowed[gate]) {
+    usage();
+    return 2;
+  }
+  const spec = allowed[gate];
+  const value = String(args[1] || "").trim().toLowerCase();
+  if (!value || !spec.values.includes(value)) {
+    out(`Недопустимое значение «${args[1] ?? ""}». Разрешено: ${spec.values.join(" | ")}`);
+    return 2;
+  }
   const file = paths().config;
-  const cfg = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+  let cfg;
+  try {
+    cfg = readConfigFile(file);
+  } catch (err) {
+    out(`Конфигурация не прочитана (${file}): ${err.message}. Изменения не внесены.`);
+    return 1;
+  }
   if (spec.key === "sessionContext") {
-    cfg.sessionContext = ["on", "true"].includes(String(value).toLowerCase());
+    cfg.sessionContext = value === "on";
   } else {
-    if (!spec.values.includes(value)) {
-      out(`Недопустимое значение «${value}». Разрешено: ${spec.values.join(" | ")}`);
-      return 2;
-    }
     cfg[spec.key] = { ...(cfg[spec.key] || {}), mode: value };
   }
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+  try {
+    writeConfigFile(file, cfg);
+  } catch (err) {
+    out(`Не удалось записать конфигурацию (${file}): ${err.message}`);
+    return 1;
+  }
+  let saved;
+  try {
+    saved = readConfigFile(file);
+  } catch (err) {
+    out(`Запись не подтверждена (${file}): ${err.message}`);
+    return 1;
+  }
+  const actual = spec.key === "sessionContext"
+    ? (saved.sessionContext === true ? "on" : saved.sessionContext === false ? "off" : "?")
+    : saved[spec.key]?.mode;
   out(`Ок: ${spec.key}${spec.key === "sessionContext" ? "" : ".mode"} = ${value}`);
+  if (actual !== value) {
+    out(`ОШИБКА: файл содержит ${actual}, ожидалось ${value}.`);
+    return 1;
+  }
+  out("Подтверждено по файлу: да.");
   if (spec.key === "riskGate" && value === "ask") {
     out("ВНИМАНИЕ: режим ask повышает вопросы пользователю для подтверждённо опасных вызовов.");
     out("Включайте его только после просмотра метрик: node scripts/laya-admin.mjs status");
@@ -111,31 +156,77 @@ function mode(args) {
  * Максимальный режим: включить все гейты и контекстные подсказки сразу.
  * on  → risk=ask, done=block, router=advise, sessionContext=on;
  * off → обратно к наблюдению (shadow/report/log/off).
+ * Любое иное значение — ошибка без записи: опечатка не должна включать режим.
  */
 function all(args) {
-  const off = ["off", "выкл", "0", "false"].includes(String(args[0] || "on").toLowerCase());
+  const raw = args.join(" ").trim().toLowerCase();
+  const value = raw === "" ? "on" : raw;
+  if (value !== "on" && value !== "off") {
+    out(`Недопустимое значение «${raw}». Разрешено: on | off (без аргумента — on).`);
+    return 2;
+  }
+  const on = value === "on";
   const file = paths().config;
-  const cfg = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
-  if (!off) {
-    cfg.riskGate = { ...(cfg.riskGate || {}), mode: "ask" };
-    cfg.doneGate = { ...(cfg.doneGate || {}), mode: "block" };
-    cfg.router = { ...(cfg.router || {}), mode: "advise" };
-    cfg.sessionContext = true;
+  let cfg;
+  try {
+    cfg = readConfigFile(file);
+  } catch (err) {
+    out(`Конфигурация не прочитана (${file}): ${err.message}. Изменения не внесены.`);
+    return 1;
+  }
+  const next = on
+    ? {
+        ...cfg,
+        riskGate: { ...(cfg.riskGate || {}), mode: "ask" },
+        doneGate: { ...(cfg.doneGate || {}), mode: "block" },
+        router: { ...(cfg.router || {}), mode: "advise" },
+        sessionContext: true,
+      }
+    : {
+        ...cfg,
+        riskGate: { ...(cfg.riskGate || {}), mode: "shadow" },
+        doneGate: { ...(cfg.doneGate || {}), mode: "report" },
+        router: { ...(cfg.router || {}), mode: "log" },
+        sessionContext: false,
+      };
+  try {
+    writeConfigFile(file, next);
+  } catch (err) {
+    out(`Не удалось записать конфигурацию (${file}): ${err.message}`);
+    return 1;
+  }
+  let saved;
+  try {
+    saved = readConfigFile(file);
+  } catch (err) {
+    out(`Запись не подтверждена (${file}): ${err.message}`);
+    return 1;
+  }
+  const actual = {
+    risk: saved.riskGate?.mode,
+    done: saved.doneGate?.mode,
+    router: saved.router?.mode,
+    sessionContext: saved.sessionContext === true ? "on" : saved.sessionContext === false ? "off" : "?",
+  };
+  const expected = on
+    ? { risk: "ask", done: "block", router: "advise", sessionContext: "on" }
+    : { risk: "shadow", done: "report", router: "log", sessionContext: "off" };
+  const confirmed = Object.keys(expected).every((k) => actual[k] === expected[k]);
+  if (on) {
     out("Максимальный режим Laya ВКЛЮЧЁН: risk=ask, done=block, router=advise, sessionContext=on.");
     out("Что это значит: подтверждённо опасные вызовы спросят разрешение; Stop может один раз");
     out("вернуть задачу на проверку, если код менялся без тестов; класс задачи придёт строкой в контекст.");
     out("Инструменты — по правилу окупаемости: заменять чтение, а не добавлять проверки (см. /laya-all).");
     out("Строгий режим экономии: mode router log (строка advise идёт на каждый промпт, точность ≈58%).");
   } else {
-    cfg.riskGate = { ...(cfg.riskGate || {}), mode: "shadow" };
-    cfg.doneGate = { ...(cfg.doneGate || {}), mode: "report" };
-    cfg.router = { ...(cfg.router || {}), mode: "log" };
-    cfg.sessionContext = false;
     out("Возврат к наблюдению: risk=shadow, done=report, router=log, sessionContext=off.");
   }
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n", "utf8");
   out(`Конфигурация: ${file}`);
+  out(`Подтверждено по файлу: risk=${actual.risk}, done=${actual.done}, router=${actual.router}, sessionContext=${actual.sessionContext}.`);
+  if (!confirmed) {
+    out("ОШИБКА: фактическое содержимое файла не совпало с ожидаемым режимом.");
+    return 1;
+  }
   return 0;
 }
 
