@@ -26,6 +26,7 @@ fs.writeFileSync(
       doneGate: { mode: "report" },
       router: { mode: "log" },
       sessionContext: false,
+      layaAll: false,
     },
     null,
     2,
@@ -52,6 +53,7 @@ function modes() {
     done: c.doneGate?.mode,
     router: c.router?.mode,
     sessionContext: c.sessionContext === true ? "on" : c.sessionContext === false ? "off" : undefined,
+    layaAll: c.layaAll === true ? "on" : c.layaAll === false ? "off" : undefined,
   };
 }
 
@@ -59,20 +61,20 @@ group("all: строгий контракт on|off");
 await test("all без аргумента включает максимальный режим", () => {
   const r = run("all");
   assertEq(r.code, 0, `exit code: ${r.stderr}`);
-  assertEq(modes(), { risk: "ask", done: "block", router: "advise", sessionContext: "on" }, "режимы");
+  assertEq(modes(), { risk: "ask", done: "block", router: "advise", sessionContext: "on", layaAll: "on" }, "режимы");
   assert(/Подтверждено по файлу/.test(r.stdout), "нет подтверждения записи");
 });
 
 await test("all off возвращает наблюдение", () => {
   const r = run("all", "off");
   assertEq(r.code, 0, `exit code: ${r.stderr}`);
-  assertEq(modes(), { risk: "shadow", done: "report", router: "log", sessionContext: "off" }, "режимы");
+  assertEq(modes(), { risk: "shadow", done: "report", router: "log", sessionContext: "off", layaAll: "off" }, "режимы");
 });
 
 await test("all без аргумента после off снова включает режим", () => {
   const r = run("all");
   assertEq(r.code, 0, `exit code: ${r.stderr}`);
-  assertEq(modes(), { risk: "ask", done: "block", router: "advise", sessionContext: "on" }, "режимы");
+  assertEq(modes(), { risk: "ask", done: "block", router: "advise", sessionContext: "on", layaAll: "on" }, "режимы");
 });
 
 await test("неизвестное значение отклоняется без записи", () => {
@@ -88,6 +90,11 @@ await test("лишние аргументы отклоняются без зап
   const r = run("all", "on", "лишнее");
   assertEq(r.code, 2, `exit code: ${r.stderr}`);
   assertEq(fs.readFileSync(config, "utf8"), before, "конфигурация изменилась");
+});
+
+await test("status показывает Laya-first", () => {
+  const r = run("status");
+  assert(/Laya-first \(laya-all\):\s+вкл/.test(r.stdout), `нет строки Laya-first: ${r.stdout}`);
 });
 
 group("mode: валидация значения и лишних аргументов");

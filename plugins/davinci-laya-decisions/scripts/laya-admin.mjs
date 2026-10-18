@@ -52,6 +52,7 @@ async function status() {
   out(`  DoneGate (Stop):       ${cfg.doneGate.mode}  (блокировок на сессию: ${cfg.doneGate.maxBlocksPerSession})`);
   out(`  TaskRouter:            ${cfg.router.mode}`);
   out(`  sessionContext:        ${cfg.sessionContext ? "вкл" : "выкл"}`);
+  out(`  Laya-first (laya-all): ${cfg.layaAll ? "вкл" : "выкл"}`);
   out("");
   out(`Метрики (файлы: ${paths().metricsDir}):`);
   out(`  событий: ${m.events}, сбоев Laya: ${m.errors}, с обрезкой state: ${m.truncated}`);
@@ -181,6 +182,7 @@ function all(args) {
         doneGate: { ...(cfg.doneGate || {}), mode: "block" },
         router: { ...(cfg.router || {}), mode: "advise" },
         sessionContext: true,
+        layaAll: true,
       }
     : {
         ...cfg,
@@ -188,6 +190,7 @@ function all(args) {
         doneGate: { ...(cfg.doneGate || {}), mode: "report" },
         router: { ...(cfg.router || {}), mode: "log" },
         sessionContext: false,
+        layaAll: false,
       };
   try {
     writeConfigFile(file, next);
@@ -207,22 +210,24 @@ function all(args) {
     done: saved.doneGate?.mode,
     router: saved.router?.mode,
     sessionContext: saved.sessionContext === true ? "on" : saved.sessionContext === false ? "off" : "?",
+    layaAll: saved.layaAll === true ? "on" : saved.layaAll === false ? "off" : "?",
   };
   const expected = on
-    ? { risk: "ask", done: "block", router: "advise", sessionContext: "on" }
-    : { risk: "shadow", done: "report", router: "log", sessionContext: "off" };
+    ? { risk: "ask", done: "block", router: "advise", sessionContext: "on", layaAll: "on" }
+    : { risk: "shadow", done: "report", router: "log", sessionContext: "off", layaAll: "off" };
   const confirmed = Object.keys(expected).every((k) => actual[k] === expected[k]);
   if (on) {
-    out("Максимальный режим Laya ВКЛЮЧЁН: risk=ask, done=block, router=advise, sessionContext=on.");
+    out("Максимальный режим Laya ВКЛЮЧЁН: risk=ask, done=block, router=advise, sessionContext=on, layaAll=on.");
     out("Что это значит: подтверждённо опасные вызовы спросят разрешение; Stop может один раз");
     out("вернуть задачу на проверку, если код менялся без тестов; класс задачи придёт строкой в контекст.");
-    out("Инструменты — по правилу окупаемости: заменять чтение, а не добавлять проверки (см. /laya-all).");
+    out("Laya-first: по умолчанию triage для >100 строк/8 КБ, search-relevant для >30 попаданий,");
+    out("batch для выбора/фильтрации >5 элементов, rank_diff для diff >3 ханков; факты проверяй.");
     out("Строгий режим экономии: mode router log (строка advise идёт на каждый промпт, точность ≈58%).");
   } else {
-    out("Возврат к наблюдению: risk=shadow, done=report, router=log, sessionContext=off.");
+    out("Возврат к наблюдению: risk=shadow, done=report, router=log, sessionContext=off, layaAll=off.");
   }
   out(`Конфигурация: ${file}`);
-  out(`Подтверждено по файлу: risk=${actual.risk}, done=${actual.done}, router=${actual.router}, sessionContext=${actual.sessionContext}.`);
+  out(`Подтверждено по файлу: risk=${actual.risk}, done=${actual.done}, router=${actual.router}, sessionContext=${actual.sessionContext}, layaAll=${actual.layaAll}.`);
   if (!confirmed) {
     out("ОШИБКА: фактическое содержимое файла не совпало с ожидаемым режимом.");
     return 1;

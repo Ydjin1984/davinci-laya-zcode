@@ -148,6 +148,10 @@ export const DEFAULTS = {
   // true — одна строка со статусом Laya (готов/недоступен).
   sessionContext: false,
 
+  // Laya-first: true — режим /laya-all. Включает низкие пороги применения
+  // инструментов (triage/search/batch/rank) и напоминание в контексте.
+  layaAll: false,
+
   ledger: { maxEventsPerSession: 800, ttlHours: 72 },
   telemetry: { enabled: true, keepDays: 14 },
   // Хранилище вытесненных чанков (ContextSelector): сколько файлов держать.
@@ -205,6 +209,7 @@ export function ensureDataDir() {
       doneGate: { mode: "report", maxBlocksPerSession: 1 },
       router: { mode: "log" },
       sessionContext: false,
+      layaAll: false,
       layaUrl: process.env.DAVINCI_LAYA_URL || DEFAULTS.layaUrl,
       timeoutMs: DEFAULTS.timeoutMs,
     };

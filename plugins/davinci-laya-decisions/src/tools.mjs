@@ -168,7 +168,7 @@ tool({
   async handler() {
     const cfg = loadConfig();
     const h = await health({ cfg });
-    recordEvent({ kind: "mcp_call", source: "mcp:laya_health", action: h.ok ? "ok" : "unavailable", latencyMs: h.latencyMs, checkpoint: h.checkpointId, inferenceError: h.ok ? null : h.error?.code });
+    recordEvent({ kind: "mcp_call", tool: "laya_health", source: "mcp:laya_health", action: h.ok ? "ok" : "unavailable", latencyMs: h.latencyMs, checkpoint: h.checkpointId, inferenceError: h.ok ? null : h.error?.code });
     if (!h.ok) {
       return okResult(
         `Laya недоступна (${h.url}): ${h.error.message}. Штатная работа ZCode продолжается; гейты плагина в пассивном режиме.`,
@@ -217,6 +217,7 @@ tool({
     const res = await decide(String(args.state ?? ""), qs, { cfg, timeoutMs: args.timeout_ms });
     recordEvent({
       kind: "mcp_call",
+      tool: "laya_decide",
       source: "mcp:laya_decide",
       action: res.ok ? `questions:${Object.keys(qs).length}` : "error",
       latencyMs: Date.now() - started,
@@ -282,6 +283,7 @@ tool({
     const res = await decide(String(args.state ?? ""), questions([choice("label", instr, criteria)]), { cfg });
     recordEvent({
       kind: "mcp_call",
+      tool: "laya_classify",
       source: "mcp:laya_classify",
       action: res.ok ? `labels:${Object.keys(criteria).length}` : "error",
       latencyMs: Date.now() - started,
@@ -325,6 +327,7 @@ tool({
     const res = await decide(String(args.state ?? ""), questions([score("level", instr, args.levels.map(String))]), { cfg });
     recordEvent({
       kind: "mcp_call",
+      tool: "laya_score",
       source: "mcp:laya_score",
       action: res.ok ? `levels:${args.levels.length}` : "error",
       latencyMs: Date.now() - started,
@@ -391,7 +394,7 @@ tool({
       return { id: it.id || `item${i}`, ok: true, checkpoint: res.checkpoint, elapsed_ms: res.elapsedMs, answers: normAnswers(res), warnings: res.warnings };
     });
     const okCount = results.filter((r) => r.ok).length;
-    recordEvent({ kind: "mcp_call", source: "mcp:laya_batch", action: `items:${items.length}`, latencyMs: Date.now() - started });
+    recordEvent({ kind: "mcp_call", tool: "laya_batch", source: "mcp:laya_batch", action: `items:${items.length}`, latencyMs: Date.now() - started });
     return okResult(`Laya batch: ${okCount}/${items.length} выполнено за ${Date.now() - started} мс.`, {
       ok: okCount > 0,
       degraded: okCount !== items.length,
@@ -475,7 +478,7 @@ tool({
     const topK = Math.max(1, Math.min(32, args.top_k || 8));
     const top = ordered.slice(0, topK);
     const rest = ordered.slice(topK);
-    recordEvent({ kind: "mcp_call", source: "mcp:laya_search_relevant", action: `hits:${hits.length}→cand:${candidates.length}`, latencyMs: Date.now() - started });
+    recordEvent({ kind: "mcp_call", tool: "laya_search_relevant", source: "mcp:laya_search_relevant", action: `hits:${hits.length}→cand:${candidates.length}`, latencyMs: Date.now() - started });
 
     // Встроенные сниппеты top-k в пределах бюджета символов: этого часто хватает
     // для ответа без чтения файлов вообще.
@@ -733,7 +736,7 @@ tool({
         const a = res.answers.important;
         return { id: t.id, importance: a.noul, confidence: a.answer_confidence, index: t.index };
       });
-      recordEvent({ kind: "mcp_call", source: "mcp:laya_log_triage", action: `chunks:${chunks.length}→unique:${ambiguous.length}`, latencyMs: Date.now() - started });
+      recordEvent({ kind: "mcp_call", tool: "laya_log_triage", source: "mcp:laya_log_triage", action: `chunks:${chunks.length}→unique:${ambiguous.length}`, latencyMs: Date.now() - started });
       rankedAmbiguous.sort((a, b) => (b.importance ?? -1) - (a.importance ?? -1) || a.index - b.index);
     }
     const important = rankedAmbiguous.filter((r) => (r.importance ?? 0) >= 0.5);
@@ -989,7 +992,7 @@ tool({
     const topK = Math.max(1, Math.min(32, args.top_k || 10));
     const byKind = {};
     for (const h of ranked) byKind[h.kind || "unknown"] = (byKind[h.kind || "unknown"] || 0) + 1;
-    recordEvent({ kind: "mcp_call", source: "mcp:laya_rank_diff", action: `hunks:${hunks.length}`, latencyMs: Date.now() - started });
+    recordEvent({ kind: "mcp_call", tool: "laya_rank_diff", source: "mcp:laya_rank_diff", action: `hunks:${hunks.length}`, latencyMs: Date.now() - started });
     const topLines = ordered.slice(0, topK).map((h, i) => `${i + 1}. ${h.file} ${h.header} — ${h.kind || "?"} (внимание ${h.attention === null ? "?" : (h.attention * 100).toFixed(0) + "%"}, +${h.added}/-${h.removed})`);
     return okResult(
       `Laya rank_diff: ${hunks.length} ханков, типы: ${Object.entries(byKind).map(([k, v]) => `${k}=${v}`).join(", ")}.\nВерхние по вниманию:\n${topLines.join("\n")}\n(Это ранжирование, не review: окончательное суждение — за моделью.)`,
