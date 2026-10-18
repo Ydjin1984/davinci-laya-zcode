@@ -323,7 +323,7 @@ export async function sessionStartGate(input, deps = {}) {
   if ((cfg.sessionContext || cfg.layaAll) && client) {
     const h = await client.health({ cfg });
     const policy = cfg.layaAll
-      ? " Laya-first: >100 строк/8 КБ — laya_log_triage; >30 попаданий — laya_search_relevant; >5 элементов — laya_batch; diff >3 ханков — laya_rank_diff; контекст >5 артефактов — laya_context_pick. Проверяй факты; в финале отчёт об использовании."
+      ? " Laya-first: >100 строк/8 КБ — laya_log_triage; >30 попаданий — laya_search_relevant; >5 элементов — laya_batch; diff >3 ханков — laya_rank_diff; контекст >5 артефактов — laya_context_pick. Минимум один явный laya_* вызов на ход; без триггера — laya_classify действия. Проверяй факты; в финале отчёт об использовании."
       : "";
     const line = (h.ok
       ? `Laya: готова (${h.device}, ${h.checkpointId || "чекпоинт неизвестен"}). Гейты: risk=${cfg.riskGate.mode}, done=${cfg.doneGate.mode}.`
@@ -372,7 +372,7 @@ export async function userPromptGate(input, deps = {}) {
   let output = null;
   if (cfg.router.mode === "advise" && rec.available && rec.suggestion) {
     const policy = cfg.layaAll
-      ? " Laya-first: отбор и решения — через laya_* (triage/search/rank/batch); проверяй результат."
+      ? " Laya-first: минимум один явный laya_* вызов на ход; отбор и решения — через laya_* (triage/search/rank/batch); без триггера — laya_classify действия; проверяй результат."
       : "";
     output = {
       hookSpecificOutput: {

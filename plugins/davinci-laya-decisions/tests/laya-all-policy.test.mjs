@@ -30,6 +30,8 @@ await test("layaAll=true добавляет политику в контекст
   assert(/Laya-first/.test(text), `нет Laya-first: ${text}`);
   assert(/laya_log_triage/.test(text), `нет triage: ${text}`);
   assert(/laya_batch/.test(text), `нет batch: ${text}`);
+  assert(/минимум один/i.test(text), `нет checkpoint: ${text}`);
+  assert(/laya_classify/.test(text), `нет classify checkpoint: ${text}`);
 });
 
 await test("layaAll=true добавляет политику даже при sessionContext=false", async () => {
@@ -57,6 +59,8 @@ await test("layaAll=true добавляет политику к совету rou
   const text = contextOf(r);
   assert(/Laya-first/.test(text), `нет Laya-first: ${text}`);
   assert(/laya_\*/.test(text), `нет laya_*: ${text}`);
+  assert(/минимум один/i.test(text), `нет checkpoint: ${text}`);
+  assert(/laya_classify/.test(text), `нет classify checkpoint: ${text}`);
 });
 
 await test("layaAll=false не добавляет политику к совету router", async () => {
